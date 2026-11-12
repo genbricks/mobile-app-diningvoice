@@ -165,6 +165,36 @@ Both apps use the `X-DiningVoice-Auth` custom header for JWT authentication, mat
 | Request timeout | 30s | 30s |
 | Upload timeout | 60s | 60s |
 
+## Testing & Setup
+
+For complete step-by-step instructions on setting up your MacBook (M1/M2/M3/M4) to build, run, and test both the iOS and Android apps — including all required software, emulator setup, and a screen-by-screen test checklist — see **[TESTING.md](TESTING.md)**.
+
+### Quick Start (if tools are already installed)
+
+**iOS:**
+```bash
+open ios/DiningVoice/DiningVoice.xcodeproj
+# Select iPhone 15 simulator → ⌘R
+```
+
+**Android:**
+```bash
+open -a "Android Studio" android/
+# Wait for Gradle sync → select Pixel 7 emulator → ▶ Run
+```
+
+### Required Software
+
+| Software | Size | Purpose |
+|---|---|---|
+| Xcode 15+ | ~12 GB | iOS builds + simulator |
+| iOS 17 Simulator Runtime | ~7 GB | Run iOS app |
+| Android Studio Hedgehog+ | ~1.5 GB | Android IDE + emulator |
+| Android SDK Platform 34 | ~3 GB | Android builds |
+| JDK 17 | ~300 MB | Gradle builds |
+
+All free. No paid Apple Developer account needed for simulator testing.
+
 ## License
 
 See [LICENSE](LICENSE).
