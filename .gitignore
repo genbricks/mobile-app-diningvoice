@@ -1,0 +1,40 @@
+# iOS
+ios/DiningVoice/DiningVoice.xcodeproj/xcuserdata/
+ios/DiningVoice/DiningVoice.xcodeproj/project.xcworkspace/xcuserdata/
+ios/DiningVoice/.build/
+ios/**/*.xcuserstate
+ios/**/xcuserdata/
+*.pbxuser
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+*.xccheckout
+*.moved-aside
+DerivedData/
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Android
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/.idea/
+android/*.iml
+android/app/*.iml
+android/captures/
+
+# IDE
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+*.env
