@@ -46,11 +46,17 @@ struct MainTabView: View {
                     }
                     .tag(3)
 
+                NfcMonitoringView()
+                    .tabItem {
+                        Label("NFC", systemImage: "wave.3.right")
+                    }
+                    .tag(4)
+
                 SettingsView()
                     .tabItem {
                         Label("Settings", systemImage: "gearshape.fill")
                     }
-                    .tag(4)
+                    .tag(5)
             } else {
                 SettingsView()
                     .tabItem {

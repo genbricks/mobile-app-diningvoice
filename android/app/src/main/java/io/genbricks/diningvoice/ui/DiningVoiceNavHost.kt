@@ -21,6 +21,7 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector)
     data object Record : Screen("record", "Record", Icons.Filled.Mic)
     data object Submissions : Screen("submissions", "Submissions", Icons.Filled.List)
     data object Incidents : Screen("incidents", "Incidents", Icons.Filled.Warning)
+    data object NfcMonitoring : Screen("nfc-monitoring", "NFC", Icons.Filled.Sensors)
     data object Settings : Screen("settings", "Settings", Icons.Filled.Settings)
     data object Login : Screen("login", "Login", Icons.Filled.Lock)
     data object PublicFeedback : Screen("public-feedback", "Feedback", Icons.Filled.ChatBubble)
@@ -40,6 +41,7 @@ fun DiningVoiceNavHost() {
             add(Screen.Submissions)
             if (authState.user?.role == "admin") {
                 add(Screen.Incidents)
+                add(Screen.NfcMonitoring)
             }
             add(Screen.Settings)
         }
@@ -100,6 +102,9 @@ fun DiningVoiceNavHost() {
             }
             composable(Screen.Incidents.route) {
                 IncidentsScreen()
+            }
+            composable(Screen.NfcMonitoring.route) {
+                NfcMonitoringScreen()
             }
             composable(Screen.Settings.route) {
                 SettingsScreen(

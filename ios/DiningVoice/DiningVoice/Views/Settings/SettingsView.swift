@@ -3,11 +3,31 @@ import SwiftUI
 struct SettingsView: View {
     @EnvironmentObject var auth: AuthViewModel
     @EnvironmentObject var themeManager: ThemeManager
+    @StateObject private var featuresVM = FeatureStatusViewModel()
     @State private var showLogoutConfirm = false
 
     var body: some View {
         NavigationStack {
             List {
+                if let features = featuresVM.features {
+                    Section("Feature Modules") {
+                        ForEach(features.modules, id: \.key) { mod in
+                            HStack {
+                                Text(mod.label)
+                                    .font(.subheadline)
+                                Spacer()
+                                Text(mod.enabled ? "Enabled" : "Disabled")
+                                    .font(.caption)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 3)
+                                    .background(mod.enabled ? AppColors.positive.opacity(0.15) : AppColors.neutral.opacity(0.15))
+                                    .foregroundStyle(mod.enabled ? AppColors.positive : AppColors.neutral)
+                                    .clipShape(Capsule())
+                            }
+                        }
+                    }
+                }
+
                 Section("Account") {
                     if let user = auth.user {
                         HStack {
@@ -81,6 +101,7 @@ struct SettingsView: View {
                 }
             }
             .navigationTitle("Settings")
+            .task { await featuresVM.loadFeatures() }
             .alert("Sign Out", isPresented: $showLogoutConfirm) {
                 Button("Sign Out", role: .destructive) { auth.logout() }
                 Button("Cancel", role: .cancel) {}

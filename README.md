@@ -12,6 +12,8 @@ This mobile app provides:
 - **Dashboard** with sentiment analytics, department breakdown, and trend charts
 - **Submissions** list with full transcription, translation, and sentiment display
 - **Incidents** management (admin) — open/close incident tracking
+- **NFC monitoring** (admin) — register NFC tags, manage dining tables, track server check-ins with on-time/overdue status, configurable timers
+- **Feature flags** — per-tenant module gating visible in Settings
 - **Public feedback** form for guest-facing QR code flow
 - **Secure auth** with JWT (password + OTP)
 - **Dark mode** support
@@ -59,7 +61,8 @@ ios/DiningVoice/DiningVoice/
 │   ├── Feedback/           # Voice recorder, text input, public feedback
 │   ├── Submissions/        # Submission list with cards
 │   ├── Incidents/          # Incident queue and close flow
-│   ├── Settings/           # Account, theme, about
+│   ├── Settings/           # Account, theme, feature status, about
+│   ├── NfcMonitoring/      # NFC devices, tables, sessions, check-in history
 │   └── Shared/             # SentimentBadge, StatCard, AudioWaveform, etc.
 ├── Services/
 │   ├── NetworkService.swift      # async/await networking with URLSession

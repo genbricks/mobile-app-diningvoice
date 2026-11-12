@@ -375,6 +375,272 @@ ipconfig getifaddr en0
 
 ---
 
+## NFC Employee Monitoring — Testing
+
+The NFC monitoring feature tracks server check-ins at dining tables via physical NFC tags. It is gated behind a per-tenant feature flag (`nfc_monitoring`) that is **disabled by default**. An admin must enable it in the platform control plane before the NFC tab and API endpoints become available.
+
+### Prerequisites for NFC Testing
+
+1. **Backend running** with the NFC migration applied (migration `0006_nfc_monitoring` runs automatically when the feature is enabled for the tenant)
+2. **Feature flag enabled** for your test tenant (see "Enable NFC Feature" below)
+3. **Physical NFC tags** — 20 NTAG215 or NTAG216 tags (any NFC Forum Type 2 tag with a 7-byte UID works)
+4. **NFC reader/writer** — any USB NFC reader (e.g. ACR122U) or an NFC-capable phone to read tag UIDs
+5. **Admin account** — NFC device registration and table management require admin role
+
+### Step 1: Enable the NFC Feature for Your Tenant
+
+Via the platform control plane API (replace `TENANT_ID` and `PLATFORM_TOKEN`):
+
+```bash
+# Check current feature flags
+curl -s http://localhost:8000/control/tenants/TENANT_ID/features \
+  -H "Authorization: Bearer PLATFORM_TOKEN" | python3 -m json.tool
+
+# Enable NFC monitoring
+curl -X PUT http://localhost:8000/control/tenants/TENANT_ID/features \
+  -H "Authorization: Bearer PLATFORM_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"features": {"nfc_monitoring": true}}'
+```
+
+Or from the **web frontend** (platform admin): navigate to **Tenant Detail → Feature Flags** and toggle `nfc_monitoring` to On.
+
+After enabling, the mobile app's **NFC tab** appears for admin users, and the Settings screen shows the feature module as "Enabled."
+
+### Step 2: Read NFC Tag UIDs
+
+Each physical NFC tag has a unique hardware UID (7 or 4 bytes, hex-encoded). You need to read this UID from each tag before registering it.
+
+**Option A — Using an NFC-capable iPhone:**
+
+1. Install Apple's free **NFC TagReader** sample app, or any NFC reader app from the App Store
+2. Hold each tag near the top edge of the iPhone
+3. Note the UID displayed (e.g. `04:A3:2B:6A:DC:54:80` → use `04A32B6ADC5480`)
+
+**Option B — Using an NFC-capable Android phone:**
+
+1. Enable NFC in Settings → Connected devices → Connection preferences → NFC
+2. Install "NFC Tools" from the Play Store
+3. Tap each tag — the app shows the serial number / UID
+4. Note the UID in hex (e.g. `04A32B6ADC5480`)
+
+**Option C — Using a USB NFC reader (ACR122U) on your Mac:**
+
+```bash
+# Install libnfc
+brew install libnfc
+
+# Read a tag (hold tag on reader)
+nfc-list
+# Output shows: ISO14443A ... UID: 04 a3 2b 6a dc 54 80
+# Strip spaces → 04a32b6adc5480
+```
+
+### Step 3: Onboard 20 NFC Devices
+
+Plan your tag allocation. For a typical restaurant layout:
+
+| Tags 1–15 | Type: `table_tag` | Fixed to dining tables (T1–T15) |
+|---|---|---|
+| Tags 16–20 | Type: `server_badge` | Worn by servers (assigned to team members) |
+
+#### Register devices via API (batch script for 20 tags):
+
+Create a file `register_nfc.sh`:
+
+```bash
+#!/bin/bash
+API="http://localhost:8000/api"
+TOKEN="<your-admin-jwt-token>"
+AUTH_HEADER="X-DiningVoice-Auth: $TOKEN"
+
+# Table tags (replace UIDs with your actual tag UIDs)
+TABLE_UIDS=(
+  "04A32B6ADC5480" "04B41C7BED6591" "04C52D8CFE76A2"
+  "04D63E9D0F87B3" "04E74FAE1098C4" "04F860BF21A9D5"
+  "050971C032BAE6" "051A82D143CBF7" "052B93E254DC08"
+  "053CA4F365ED19" "054DB50476FE2A" "055EC61587003B"
+  "056FD7269811AC" "0570E837A922BD" "0581F948BA33CE"
+)
+
+# Server badge tags
+SERVER_UIDS=(
+  "0592004BCB44DF" "05A3115CDC55E0" "05B4226DED66F1"
+  "05C5337EFE7702" "05D6448F0F8813"
+)
+
+echo "=== Registering 15 table tags ==="
+for i in "${!TABLE_UIDS[@]}"; do
+  NUM=$((i + 1))
+  echo "Registering Table Tag T${NUM}..."
+  curl -s -X POST "$API/nfc/devices" \
+    -H "$AUTH_HEADER" \
+    -H "Content-Type: application/json" \
+    -d "{\"device_uid\": \"${TABLE_UIDS[$i]}\", \"device_type\": \"table_tag\", \"label\": \"Table Tag T${NUM}\"}"
+  echo ""
+done
+
+echo "=== Registering 5 server badges ==="
+NAMES=("Alice" "Bob" "Carlos" "Diana" "Eli")
+for i in "${!SERVER_UIDS[@]}"; do
+  echo "Registering Server Badge ${NAMES[$i]}..."
+  curl -s -X POST "$API/nfc/devices" \
+    -H "$AUTH_HEADER" \
+    -H "Content-Type: application/json" \
+    -d "{\"device_uid\": \"${SERVER_UIDS[$i]}\", \"device_type\": \"server_badge\", \"label\": \"Badge - ${NAMES[$i]}\"}"
+  echo ""
+done
+
+echo "=== Done. Listing all devices ==="
+curl -s "$API/nfc/devices" -H "$AUTH_HEADER" | python3 -m json.tool
+```
+
+```bash
+chmod +x register_nfc.sh
+./register_nfc.sh
+```
+
+> **Important:** Replace the placeholder UIDs above with your actual tag UIDs from Step 2.
+
+#### Register devices via the mobile app:
+
+1. Open the app → log in as admin → go to the **NFC** tab
+2. Tap the **Devices** segment
+3. Tap **+** (Add Device)
+4. Enter the device UID, select type (Table Tag or Server Badge), enter a label
+5. Tap **Register** — repeat for all 20 devices
+
+### Step 4: Create Dining Tables and Link NFC Tags
+
+After registering devices, create dining tables and link each table tag:
+
+```bash
+# Create 15 tables and link NFC tags
+API="http://localhost:8000/api"
+TOKEN="<your-admin-jwt-token>"
+
+for i in $(seq 1 15); do
+  DEVICE_ID=$(curl -s "$API/nfc/devices" -H "X-DiningVoice-Auth: $TOKEN" \
+    | python3 -c "import sys,json; devs=json.load(sys.stdin); print(next(d['device_id'] for d in devs if d['label']=='Table Tag T${i}'))")
+
+  SECTION="Main"
+  if [ $i -gt 10 ]; then SECTION="Patio"; fi
+
+  curl -s -X POST "$API/nfc/tables" \
+    -H "X-DiningVoice-Auth: $TOKEN" \
+    -H "Content-Type: application/json" \
+    -d "{\"table_number\": \"T${i}\", \"section\": \"${SECTION}\", \"seat_count\": 4, \"nfc_device_id\": \"${DEVICE_ID}\"}"
+  echo " → Table T${i} created (${SECTION})"
+done
+```
+
+Or via the mobile app: **NFC tab → Tables → + → fill in table number, section, seats, pick the NFC device from the list**.
+
+### Step 5: Configure NFC Settings
+
+```bash
+curl -X PUT "$API/nfc/settings" \
+  -H "X-DiningVoice-Auth: $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "enabled": true,
+    "checkin_interval_minutes": 15,
+    "grace_period_minutes": 5,
+    "alert_on_missed_checkin": true,
+    "peak_hours": [{"start": "11:00", "end": "14:00"}, {"start": "18:00", "end": "22:00"}]
+  }'
+```
+
+Or via the mobile app: **NFC tab → Settings**.
+
+### Step 6: Test the NFC Workflow (Mobile App)
+
+This is the full end-to-end test flow:
+
+| # | Action | Expected result |
+|---|---|---|
+| 1 | Log in as admin | NFC tab visible in bottom bar |
+| 2 | Go to NFC → Devices | All 20 registered devices listed (15 table + 5 badge) |
+| 3 | Go to NFC → Tables | All 15 tables listed with linked NFC tags |
+| 4 | Go to NFC → Sessions | Empty state ("No active sessions") |
+| 5 | Tap **+** to open a session | Select table T1, assign server, set guest count=4, preference=All |
+| 6 | Session appears with status "Seated" (blue chip) | Timer not started yet |
+| 7 | Tap "Order Placed" button | Status changes to "Order Placed" (orange chip) |
+| 8 | Tap "Food Delivered" button | Status changes to "Food Delivered" (green chip), timer starts, `next_checkin_due_at` set to now+15min |
+| 9 | Record a check-in (tap + at checkin) | Enter NFC device UID + server ID → check-in recorded, `was_on_time` = true, timer resets |
+| 10 | Wait 15+ minutes without checking in | Session appears in Overdue alerts (red banner at top) |
+| 11 | Record a late check-in | `was_on_time` = false (red X icon in history) |
+| 12 | Tap session → view check-in history | Timeline shows all check-ins with on-time/late status |
+| 13 | Tap "Close Session" | Status changes to "Closed" (gray), timer cleared |
+| 14 | Go to NFC → Settings | Toggle settings, change interval, save — verify values persist |
+| 15 | Go to Settings (main) | Feature Modules section shows nfc_monitoring = Enabled |
+
+### Step 7: Test Feature Gating
+
+| # | Action | Expected result |
+|---|---|---|
+| 1 | Disable NFC feature (platform admin toggle or API) | NFC tab still shows but all API calls return 403 "feature not enabled" |
+| 2 | Reload app / re-login | NFC tab disappears from bottom bar (admin re-checks features) |
+| 3 | Re-enable NFC feature | NFC tab reappears with all data intact |
+
+### Step 8: Test with Physical NFC Device
+
+If you have a physical NFC reader connected to your Mac, or are testing on a physical iPhone/Android with NFC:
+
+**On physical iPhone (iOS):**
+
+1. Build and run on physical device (see Step 6 in iOS testing above)
+2. Open NFC tab → Sessions → open an active session
+3. Tap "Record Check-in"
+4. Hold the NFC table tag near the top of the iPhone
+5. The app reads the tag UID and auto-fills the NFC device UID field
+6. Confirm → check-in recorded
+
+> **Note:** iOS NFC reading requires `NFCReaderSession` and a physical device (simulators do not support NFC). The mobile app falls back to manual UID entry in the simulator.
+
+**On physical Android phone:**
+
+1. Enable NFC: Settings → Connected devices → NFC → On
+2. Build and run on physical device
+3. Open NFC tab → Sessions → open an active session
+4. Tap "Record Check-in"
+5. Hold the NFC table tag on the back of the phone
+6. The app reads the tag UID via `NfcAdapter` and auto-fills
+7. Confirm → check-in recorded
+
+**Simulator testing (no physical NFC):**
+
+Both simulators lack NFC hardware. Test the full workflow by manually entering tag UIDs:
+
+1. Keep a list of your 20 registered UIDs handy
+2. In the "Record Check-in" form, type the table tag UID (e.g. `04A32B6ADC5480`)
+3. Enter the server's team member ID
+4. Submit — the API resolves the UID to the table and records the check-in
+
+### NFC Testing on Multiple Screen Sizes
+
+Test the NFC screens on these devices to verify responsive layout:
+
+| iOS | Android |
+|---|---|
+| iPhone SE (small — verify tabs don't overflow) | Pixel 4a (small) |
+| iPhone 17 (standard) | Pixel 7 (standard) |
+| iPhone 18 Pro Max (large) | Pixel 7 Pro (large) |
+| iPad Pro 11" (tablet — cards should use wider grid) | Pixel Tablet (tablet) |
+
+### NFC Troubleshooting
+
+| Problem | Solution |
+|---|---|
+| NFC tab not showing | Check: admin role, nfc_monitoring feature enabled, app restarted |
+| 403 on NFC endpoints | Feature is disabled for this tenant — enable via control plane |
+| "device with that UID already registered" | Each tag UID is globally unique per tenant — check existing devices |
+| Overdue alerts not appearing | Verify: session status is "food_delivered", preference is "all", 15+ min passed |
+| Check-in says "no active table" | The tag UID isn't linked to any table, or the NFC device is deactivated |
+| Check-in says "no active session" | No open session exists for that table — open one first |
+
+---
+
 ## Software Summary
 
 | Software | Version | Size | Purpose |

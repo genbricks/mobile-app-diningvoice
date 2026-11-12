@@ -88,6 +88,53 @@ interface DiningVoiceApi {
     @POST("public/proofread")
     suspend fun proofread(@Body body: Map<String, String>): Map<String, String>
 
+    // Features
+    @GET("features")
+    suspend fun getFeatures(): io.genbricks.diningvoice.data.model.TenantFeatures
+
+    // NFC Monitoring
+    @GET("nfc/devices")
+    suspend fun getNfcDevices(): List<io.genbricks.diningvoice.data.model.NfcDevice>
+
+    @POST("nfc/devices")
+    suspend fun registerNfcDevice(@Body body: io.genbricks.diningvoice.data.model.NfcDeviceRequest): io.genbricks.diningvoice.data.model.NfcDevice
+
+    @PATCH("nfc/devices/{id}")
+    suspend fun updateNfcDevice(@Path("id") id: String, @Body body: Map<String, Any?>): io.genbricks.diningvoice.data.model.NfcDevice
+
+    @GET("nfc/tables")
+    suspend fun getNfcTables(): List<io.genbricks.diningvoice.data.model.DiningTable>
+
+    @POST("nfc/tables")
+    suspend fun createNfcTable(@Body body: io.genbricks.diningvoice.data.model.DiningTableRequest): io.genbricks.diningvoice.data.model.DiningTable
+
+    @PATCH("nfc/tables/{id}")
+    suspend fun updateNfcTable(@Path("id") id: String, @Body body: Map<String, Any?>): io.genbricks.diningvoice.data.model.DiningTable
+
+    @GET("nfc/sessions")
+    suspend fun getNfcSessions(@Query("active_only") activeOnly: Boolean = true): List<io.genbricks.diningvoice.data.model.TableSession>
+
+    @POST("nfc/sessions")
+    suspend fun openNfcSession(@Body body: io.genbricks.diningvoice.data.model.TableSessionRequest): io.genbricks.diningvoice.data.model.TableSession
+
+    @PATCH("nfc/sessions/{id}")
+    suspend fun updateNfcSession(@Path("id") id: String, @Body body: io.genbricks.diningvoice.data.model.TableSessionUpdateRequest): io.genbricks.diningvoice.data.model.TableSession
+
+    @POST("nfc/checkin")
+    suspend fun nfcCheckin(@Body body: io.genbricks.diningvoice.data.model.CheckinRequest): io.genbricks.diningvoice.data.model.ServerCheckin
+
+    @GET("nfc/sessions/{id}/checkins")
+    suspend fun getSessionCheckins(@Path("id") id: String): List<io.genbricks.diningvoice.data.model.ServerCheckin>
+
+    @GET("nfc/overdue")
+    suspend fun getOverdueSessions(): List<io.genbricks.diningvoice.data.model.OverdueSession>
+
+    @GET("nfc/settings")
+    suspend fun getNfcSettings(): io.genbricks.diningvoice.data.model.NfcSettings
+
+    @PUT("nfc/settings")
+    suspend fun updateNfcSettings(@Body body: io.genbricks.diningvoice.data.model.NfcSettingsUpdateRequest): io.genbricks.diningvoice.data.model.NfcSettings
+
     // Health
     @GET("health")
     suspend fun health(): Map<String, Any>

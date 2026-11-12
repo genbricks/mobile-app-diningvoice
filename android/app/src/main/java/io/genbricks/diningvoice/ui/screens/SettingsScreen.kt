@@ -10,7 +10,34 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import dagger.hilt.android.lifecycle.HiltViewModel
+import io.genbricks.diningvoice.data.api.DiningVoiceApi
+import io.genbricks.diningvoice.data.model.TenantFeatures
 import io.genbricks.diningvoice.ui.theme.Purple
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import javax.inject.Inject
+
+@HiltViewModel
+class FeatureStatusViewModel @Inject constructor(
+    private val api: DiningVoiceApi
+) : ViewModel() {
+    private val _features = MutableStateFlow<TenantFeatures?>(null)
+    val features = _features.asStateFlow()
+
+    init { loadFeatures() }
+
+    fun loadFeatures() {
+        viewModelScope.launch {
+            try {
+                _features.value = api.getFeatures()
+            } catch (_: Exception) {}
+        }
+    }
+}
 
 @Composable
 fun SettingsScreen(
@@ -18,6 +45,8 @@ fun SettingsScreen(
     viewModel: AuthViewModel = hiltViewModel()
 ) {
     val authState by viewModel.authState.collectAsState()
+    val featureVM: FeatureStatusViewModel = hiltViewModel()
+    val featuresData by featureVM.features.collectAsState()
     var showLogoutDialog by remember { mutableStateOf(false) }
 
     Column(
@@ -28,6 +57,32 @@ fun SettingsScreen(
         Text("Settings", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
 
         Spacer(Modifier.height(24.dp))
+
+        featuresData?.let { tf ->
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp)) {
+                    Text("Feature Modules", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Spacer(Modifier.height(8.dp))
+                    tf.modules.forEach { mod ->
+                        Row(
+                            Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(mod.label, style = MaterialTheme.typography.bodyMedium)
+                            SuggestionChip(
+                                onClick = {},
+                                label = { Text(if (mod.enabled) "Enabled" else "Disabled", style = MaterialTheme.typography.labelSmall) },
+                                colors = SuggestionChipDefaults.suggestionChipColors(
+                                    containerColor = if (mod.enabled) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
+                                )
+                            )
+                        }
+                    }
+                }
+            }
+            Spacer(Modifier.height(16.dp))
+        }
 
         authState.user?.let { user ->
             Card(Modifier.fillMaxWidth()) {
